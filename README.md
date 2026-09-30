@@ -2,6 +2,9 @@
 
 Turn a YouTube channel into a podcast RSS feed with downloadable audio files.
 
+This repository is a copy of https://github.com/andreparames/yt-pod-rss
+
+
 ## How it works
 
 1. Fetches the latest videos from a YouTube channel (skips Shorts)
