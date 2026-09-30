@@ -32,7 +32,7 @@ jobs:
 
       - name: Validate YouTube cookies
         run: |
-          printf '%s' "$YT_COOKIES" > .cookies_tmp.txt
+          printf '%s' "$YT_COOKIES" | base64 --decode > .cookies_tmp.txt
 
           echo "Cookie file size:"
           wc -c .cookies_tmp.txt
