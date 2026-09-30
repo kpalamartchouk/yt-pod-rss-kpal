@@ -1,61 +1,87 @@
-name: Generate RSS Feed
+name: Generate Podcast Feed
 
 on:
   schedule:
-    - cron: "0 6 * * *"
+    # Run every 6 hours
+    - cron: "0 */6 * * *"
   workflow_dispatch:
-    inputs:
-      num_videos:
-        description: "Number of videos per feed"
-        required: false
-        default: "20"
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
+  contents: write
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    env:
+      YT_COOKIES: ${{ secrets.YT_COOKIES }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Generate feeds
-        env:
-          YT_COOKIES: ${{ secrets.YT_COOKIES }}
-        run: python generate_feed.py -n "${{ inputs.num_videos || '20' }}"
-
-      - name: Prepare Pages output
         run: |
-          mkdir -p _site
-          cp *.xml _site/ 2>/dev/null || true
-          if [ -d media ]; then cp -r media _site/; fi
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
+      - name: Validate YouTube cookies
+        run: |
+          printf '%s' "$YT_COOKIES" > .cookies_tmp.txt
+
+          echo "Cookie file size:"
+          wc -c .cookies_tmp.txt
+
+          echo "Cookie file line count:"
+          wc -l .cookies_tmp.txt
+
+          echo "First line:"
+          head -n 1 .cookies_tmp.txt
+
+          echo "Validating Netscape format..."
+
+          python - <<'PY'
+          from http.cookiejar import MozillaCookieJar
+
+          path = ".cookies_tmp.txt"
+
+          try:
+              jar = MozillaCookieJar(path)
+              jar.load(
+                  ignore_discard=True,
+                  ignore_expires=True
+              )
+
+              print("Cookie file: VALID")
+              print("Cookies loaded:", len(jar))
+
+          except Exception as e:
+              print("Cookie file: INVALID")
+              print(type(e).__name__ + ":", str(e))
+              raise
+          PY
+
+      - name: Generate podcast feed
+        run: |
+          python generate_feed.py
+
+      - name: Check generated files
+        run: |
+          echo "Generated files:"
+          find . -maxdepth 3 -type f \
+            ! -path './.git/*' \
+            ! -path './.cookies_tmp.txt' \
+            -print
 
       - name: Deploy to GitHub Pages
-        id: deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy GitHub Pages
         uses: actions/deploy-pages@v4
