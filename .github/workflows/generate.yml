@@ -1,9 +1,9 @@
 name: Generate Podcast Feed
 
 on:
-  schedule:
-    # Run every 6 hours
-    - cron: "0 */6 * * *"
+  # schedule:
+    ## Run every 6 hours
+    # - cron: "0 */6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -67,6 +67,19 @@ jobs:
               print(type(e).__name__ + ":", str(e))
               raise
           PY
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Test YouTube authentication
+        run: |
+          yt-dlp \
+            --cookies .cookies_tmp.txt \
+            --js-runtimes deno \
+            --print "%(title)s" \
+            "https://www.youtube.com/watch?v=r5uO7oP2Pa8"
 
       - name: Generate podcast feed
         run: |
